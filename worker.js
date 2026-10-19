@@ -25,7 +25,7 @@ const KEY_RE = /^[A-Za-z0-9:_.\-]{1,128}$/;
 const MAX_BODY = 1_000_000; // 1 MB per section, well under KV's 25 MB value limit
 
 // The board sections to snapshot on the scheduled cron (see [triggers] in
-// wrangler.toml). Keep this in sync with the SECTIONS your app writes.
+// wrangler.toml), and the allowlist for /api/kv. Keep in sync with KEYS in src/app.jsx.
 const SECTIONS = ['board:meals:v1', 'board:staples:v1', 'board:gear:v1', 'board:roster:v1', 'board:events:v1'];
 const BKP_PREFIX = 'bkp:'; // backup keys live in the same namespace, outside the board:: prefix
 const BKP_KEEP = 48;       // keep ~2 days of hourly snapshots
@@ -48,10 +48,10 @@ async function backup(env) {
   }
 }
 
+// The app is served by this same Worker, so the API is same-origin only: no CORS
+// headers, which keeps other sites' scripts from reading or writing the board.
 function withCors(resp) {
-  resp.headers.set('access-control-allow-origin', '*');
-  resp.headers.set('access-control-allow-methods', 'GET, PUT, OPTIONS');
-  resp.headers.set('access-control-allow-headers', 'content-type, x-board-key');
+  resp.headers.set('x-content-type-options', 'nosniff');
   return resp;
 }
 const json = (obj, status = 200) =>
@@ -79,6 +79,9 @@ async function handleApi(request, env, url) {
 
   const rawKey = decodeURIComponent(match[1]);
   if (!KEY_RE.test(rawKey)) return text('bad key', 400);
+  // Only the board's own sections are storable, so nobody can fill the KV
+  // namespace (or burn the free-tier write quota) with arbitrary keys.
+  if (!SECTIONS.includes(rawKey)) return text('not found', 404);
 
   const board = env.BOARD_ID || 'demo';
   const kvKey = `${board}::${rawKey}`;

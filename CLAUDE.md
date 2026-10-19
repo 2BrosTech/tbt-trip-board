@@ -25,6 +25,9 @@ Everything trip-specific lives near the top of `src/app.jsx`:
   the `<Playlist />` usage rather than leaving someone else's.
 - **Fireworks easter egg:** fires when someone RSVPs to an event with "fireworks"
   in its title. Leave it unless they ask.
+- **New tab or section:** add its key to `KEYS` in `src/app.jsx` AND to `SECTIONS`
+  in `worker.js`. The Worker rejects any key not in `SECTIONS`, so a missing entry
+  shows up as a section that never saves.
 - **Look:** all CSS is in the `Style` component at the bottom of the file, with
   color variables at the top of that block.
 

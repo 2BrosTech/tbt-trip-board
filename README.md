@@ -110,8 +110,9 @@ npm run dev     # bundles the app, then runs `wrangler dev` with a local KV
   (`seedMeals`, `STAPLES_SEED`, `GEAR_SEED`, `EVENTS_SEED`) are plain arrays —
   swap in your own weekend.
 - **Add a section:** add a key to `KEYS`, a seed, a tab entry, and a component
-  in `src/app.jsx`; add the same key to `SECTIONS` in `worker.js` so the hourly
-  backup covers it.
+  in `src/app.jsx`; add the same key to `SECTIONS` in `worker.js`. That list is both
+  the hourly-backup list and the API allowlist, so the new tab can't save until
+  it's there.
 - **Change the look:** all styles live in the `Style` component at the bottom
   of `src/app.jsx` — one CSS block, custom properties up top.
 - **Weather + playlist:** swap the Open-Meteo coordinates in `TripWeather` and
