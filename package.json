@@ -2,7 +2,7 @@
   "name": "tbt-trip-board",
   "version": "1.0.0",
   "private": true,
-  "description": "No-login shared board on Cloudflare Workers + KV — a reusable template",
+  "description": "Free no-login trip board on Cloudflare Workers + KV, from Two Brothers Technology",
   "scripts": {
     "build": "esbuild src/app.jsx --bundle --minify --format=iife --loader:.jsx=jsx --jsx=automatic --outfile=public/app.js",
     "dev": "npm run build && wrangler dev",
@@ -14,6 +14,9 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.0",
-    "wrangler": "^4.151.2"
+    "wrangler": "4.147.0"
+  },
+  "overrides": {
+    "sharp": "0.35.5"
   }
 }
