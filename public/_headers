@@ -1,0 +1,8 @@
+# Security headers for the app's static files (Workers Static Assets reads this file).
+# Allowed third parties: Google Fonts, Open-Meteo (weather), Spotify (playlist embed),
+# youtube-nocookie (fireworks easter egg). Add a domain here if you embed something new.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.open-meteo.com; frame-src https://open.spotify.com https://www.youtube-nocookie.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: camera=(), microphone=(), geolocation=()

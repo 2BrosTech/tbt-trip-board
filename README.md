@@ -11,8 +11,10 @@ copy is set up as a 4th-of-July lake weekend so you can see how everything fits.
 ## Not a developer? Let Claude set it up
 
 1. Download this repo (green **Code** button → **Download ZIP**) and unzip it.
-2. Install [Node.js](https://nodejs.org) (LTS) and [Claude Code](https://claude.com/claude-code).
-3. Make a free [Cloudflare account](https://dash.cloudflare.com/sign-up).
+2. Install [Node.js](https://nodejs.org) (the LTS version, 22 or newer) and
+   [Claude Code](https://claude.com/claude-code).
+3. Make a free [Cloudflare account](https://dash.cloudflare.com/sign-up), then open
+   **Workers & Pages** in the dashboard once and pick your `workers.dev` name.
 4. Open a terminal in the unzipped folder, run `claude`, and paste the prompt in
    [PROMPT.md](PROMPT.md).
 
@@ -66,8 +68,10 @@ trip-board/
   section, applies your edit, and writes it back — so concurrent edits to
   *different* rows are safe. Same-row edits within a second are last-write-wins
   (fine at small-group scale; use a Durable Object if you need true atomicity).
-- **No login.** Identity is just a display name in `localStorage`. The
-  unguessable Worker URL is the access control; set `BOARD_KEY` for a light gate.
+- **No login, private link.** Identity is just a display name in `localStorage`.
+  Access is the link itself: set a `BOARD_KEY` secret and share the board as
+  `https://<board>/#key=<key>`. The part after `#` never reaches the server or its
+  logs. Anyone without the key sees a "need the full link" screen.
 - **Hourly backups, built in.** A scheduled cron fires the Worker's
   `scheduled()` handler, which snapshots every section into timestamped `bkp:`
   KV keys (keeps ~2 days). Runs in Cloudflare's cloud 24/7 — no local machine.
@@ -76,23 +80,28 @@ trip-board/
 
 ## Deploy (about 5 minutes)
 
+Needs Node.js 22 or newer and a free Cloudflare account. **New Cloudflare account?**
+Open Workers & Pages in the dashboard once and pick your `workers.dev` name first,
+or the first deploy stops and asks you to.
+
 ```bash
-# 0. from the trip-board/ directory
+# 0. from the project folder
 npm install
-npm install -g wrangler          # or use: npx wrangler ...
 
 # 1. log into YOUR Cloudflare account (opens a browser)
-wrangler login
+npx wrangler login
 
-# 2. create the KV namespace, then paste the printed id into wrangler.toml
-#    ([[kv_namespaces]] -> id = "...")
-wrangler kv namespace create BOARD
+# 2. ship it. The first deploy creates the KV namespace for you and writes its id
+#    into wrangler.toml (keep it). The [build] hook bundles src/app.jsx first.
+npx wrangler deploy
 
-# 3. ship it — the [build] hook bundles src/app.jsx first, so this is all you run
-wrangler deploy
+# 3. make it private: generate a key, store it as a secret
+node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
+npx wrangler secret put BOARD_KEY      # paste the key when asked
 ```
 
-You'll get a free `https://trip-board.<your-subdomain>.workers.dev` URL. To use
+Share `https://trip-board.<your-subdomain>.workers.dev/#key=<your-key>`. Skip
+step 3 if you want an open board anyone with the URL can edit. To use
 your own domain, uncomment the `[[routes]]` block in `wrangler.toml` (if the zone
 is on your Cloudflare account, deploying creates the DNS record and TLS cert for
 you).
@@ -102,6 +111,9 @@ you).
 ```bash
 npm run dev     # bundles the app, then runs `wrangler dev` with a local KV
 ```
+
+No Cloudflare login needed. To test the private link locally, put
+`BOARD_KEY=anything` in a `.dev.vars` file and open `http://localhost:8787/#key=anything`.
 
 ## Make it yours
 
@@ -117,8 +129,10 @@ npm run dev     # bundles the app, then runs `wrangler dev` with a local KV
   of `src/app.jsx` — one CSS block, custom properties up top.
 - **Weather + playlist:** swap the Open-Meteo coordinates in `TripWeather` and
   the Spotify playlist id in `EMBED_SRC`.
-- **Lock it down:** set `BOARD_KEY` in `wrangler.toml` and send the matching
-  `X-Board-Key` header from the app.
+- **Change the key:** run `npx wrangler secret put BOARD_KEY` again and send
+  everyone the new link. Old links stop working right away.
+- **Embedding something new?** Add its domain to the Content-Security-Policy in
+  `public/_headers`, or the browser will block it.
 
 ## License
 

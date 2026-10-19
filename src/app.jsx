@@ -105,12 +105,24 @@ const timeout = (ms) => new Promise((_, rej) => setTimeout(() => rej(new Error('
 const race = (p, ms = 4000) => Promise.race([p, timeout(ms)]);
 const kvUrl = (key) => `/api/kv/${encodeURIComponent(key)}`;
 
+// Private-link key. A locked board is shared as https://<board>/#key=<secret>; the
+// fragment never reaches the server or its logs. We remember it on this device and
+// send it as X-Board-Key. LOCKED flips on when the Worker answers 401.
+const BOARD_KEY_STORE = 'board:key:v1';
+let LOCKED = false;
+function boardKey() {
+  const m = (window.location.hash || '').match(/(?:^#|&)key=([^&]+)/);
+  if (m) { const k = decodeURIComponent(m[1]); setRaw(BOARD_KEY_STORE, k); return k; }
+  return getRaw(BOARD_KEY_STORE) || '';
+}
+const apiHeaders = (extra) => { const k = boardKey(); return k ? { ...extra, 'x-board-key': k } : extra; };
+
 // Replay writes that were buffered while offline. Stops at the first failure so
 // we don't hammer a still-down backend; remaining keys retry on the next pass.
 async function flushDirty() {
   for (const key of [...DIRTY]) {
     try {
-      const res = await race(fetch(kvUrl(key), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(MEM[key]) }));
+      const res = await race(fetch(kvUrl(key), { method: 'PUT', headers: apiHeaders({ 'content-type': 'application/json' }), body: JSON.stringify(MEM[key]) }));
       if (!res.ok) throw new Error('PUT ' + res.status);
       DIRTY.delete(key);
     } catch (e) { return; }
@@ -119,7 +131,9 @@ async function flushDirty() {
 
 async function getJSON(key) { // shared board state, stored in KV
   try {
-    const res = await race(fetch(kvUrl(key), { headers: { accept: 'application/json' } }));
+    const res = await race(fetch(kvUrl(key), { headers: apiHeaders({ accept: 'application/json' }) }));
+    if (res.status === 401) { LOCKED = true; throw new Error('locked'); } // treat like a failed read: never seed over it
+    LOCKED = false;
     USE_MEMORY = false;           // we reached the backend — we're online
     if (DIRTY.size) flushDirty(); // fire-and-forget; refresh() awaits its own flush
     if (res.status === 404) return key in MEM ? MEM[key] : null;
@@ -136,7 +150,8 @@ async function getJSON(key) { // shared board state, stored in KV
 async function setJSON(key, value) {
   MEM[key] = value;
   try {
-    const res = await race(fetch(kvUrl(key), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value) }));
+    const res = await race(fetch(kvUrl(key), { method: 'PUT', headers: apiHeaders({ 'content-type': 'application/json' }), body: JSON.stringify(value) }));
+    if (res.status === 401) LOCKED = true;
     if (!res.ok) throw new Error('PUT ' + res.status);
     USE_MEMORY = false;
     DIRTY.delete(key);
@@ -220,6 +235,7 @@ function App() {
   const [copied, setCopied] = useState(false);
   const [copyFallback, setCopyFallback] = useState(null);
   const [egg, setEgg] = useState(false);
+  const [locked, setLocked] = useState(false);
   const mounted = useRef(true);
   const rosterInit = useRef(false);
   const saveTimer = useRef(null);
@@ -234,6 +250,7 @@ function App() {
       setData({ meals: meals || [], staples: staples || [], gear: gear || [], roster: roster || [], events: events || [] });
       setSync({ state: 'ok', at: new Date() });
       setMode(USE_MEMORY ? 'memory' : 'shared');
+      setLocked(LOCKED);
     } catch (e) { if (mounted.current) setSync({ state: 'error', at: new Date() }); }
   }, []);
 
@@ -272,7 +289,7 @@ function App() {
       } catch (e) {
         if (mounted.current) setData({ meals: seedMeals(), staples: STAPLES_SEED, gear: GEAR_SEED, roster: [], events: EVENTS_SEED });
       } finally {
-        if (mounted.current) { setMode(USE_MEMORY ? 'memory' : 'shared'); setLoading(false); }
+        if (mounted.current) { setMode(USE_MEMORY ? 'memory' : 'shared'); setLocked(LOCKED); setLoading(false); }
       }
     })();
 
@@ -464,7 +481,9 @@ function App() {
   return (
     <div className="board">
       <Style />
-      {!me ? (
+      {locked ? (
+        <Locked />
+      ) : !me ? (
         <Gate value={nameInput} onChange={setNameInput} onSubmit={checkIn} roster={data.roster} onPick={rejoinAs} loading={loading} />
       ) : loading ? (
         <div className="loading"><div className="spinner" /><span>Loading the board…</span></div>
@@ -579,6 +598,19 @@ function startMinutes(time) {
   if (mer === 'pm' && hr !== 12) hr += 12;
   if (mer === 'am' && hr === 12) hr = 0;
   return hr * 60 + min;
+}
+
+// Shown when the Worker requires a board key this device doesn't have.
+function Locked() {
+  return (
+    <div className="gate">
+      <div className="gate-sign">
+        <div className="eyebrow">Private board</div>
+        <h1 className="gate-title">Need the full link</h1>
+        <p className="gate-sub">This board is private. Open it with the complete link you were sent (it ends in #key=…), or ask whoever shared it to send it again.</p>
+      </div>
+    </div>
+  );
 }
 
 function Gate({ value, onChange, onSubmit, roster, onPick, loading }) {

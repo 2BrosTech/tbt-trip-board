@@ -12,9 +12,10 @@
  * Notes:
  * - Keys are namespaced by BOARD_ID, so you can run multiple independent boards
  *   off a single Worker + KV namespace.
- * - Optional shared secret: set BOARD_KEY and the app must send X-Board-Key.
- *   For most cases the unguessable Worker URL is enough — BOARD_KEY is there if
- *   you want a light gate.
+ * - Private link: set the BOARD_KEY secret (`wrangler secret put BOARD_KEY`) and
+ *   share the board as https://<board>/#key=<secret>. The app sends the key as
+ *   X-Board-Key; without it the API answers 401 and the app shows a locked screen.
+ *   Unset, the board is open to anyone who has the URL.
  * - KV is last-write-wins. The app does read-merge-write per section, which keeps
  *   concurrent edits to *different* rows safe. Two people editing the *same* row
  *   within the same second can still clobber — fine at small-group scale. For true
@@ -58,6 +59,13 @@ const json = (obj, status = 200) =>
   withCors(new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } }));
 const text = (body, status) => withCors(new Response(body, { status }));
 
+// Constant-time comparison for the board key (set with `wrangler secret put BOARD_KEY`).
+async function sameSecret(given, expected) {
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([given, expected].map((v) => crypto.subtle.digest('SHA-256', enc.encode(v))));
+  return crypto.subtle.timingSafeEqual(a, b);
+}
+
 async function handleApi(request, env, url) {
   if (request.method === 'OPTIONS') return withCors(new Response(null, { status: 204 }));
 
@@ -70,7 +78,7 @@ async function handleApi(request, env, url) {
     if (!success) return text('slow down — too many requests', 429);
   }
 
-  if (env.BOARD_KEY && request.headers.get('x-board-key') !== env.BOARD_KEY) {
+  if (env.BOARD_KEY && !(await sameSecret(request.headers.get('x-board-key') || '', env.BOARD_KEY))) {
     return text('unauthorized', 401);
   }
 
@@ -99,7 +107,10 @@ async function handleApi(request, env, url) {
     }
     const body = await request.text();
     if (body.length > MAX_BODY) return text('payload too large', 413);
-    try { JSON.parse(body); } catch { return text('body must be JSON', 400); }
+    // Every section is a JSON array; anything else would break the board for everyone.
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { return text('body must be JSON', 400); }
+    if (!Array.isArray(parsed)) return text('body must be a JSON array', 400);
     await env.BOARD.put(kvKey, body);
     return json({ ok: true });
   }

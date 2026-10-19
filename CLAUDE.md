@@ -36,10 +36,25 @@ Everything trip-specific lives near the top of `src/app.jsx`:
 - `npm install`, then `npm run dev` (builds, then runs `wrangler dev` with a local
   KV — no Cloudflare login needed). If devDependencies don't install, the shell has
   `NODE_ENV=production`; use `NODE_ENV=development npm install --include=dev`.
-- Deploy: `npx wrangler login` (the user completes it in their browser), then
-  `npx wrangler kv namespace create BOARD`, paste the printed id into
-  `wrangler.toml` replacing `REPLACE_WITH_YOUR_KV_NAMESPACE_ID`, then
-  `npx wrangler deploy`. The `[build]` hook rebuilds `public/app.js` on every deploy.
+- Check `node -v` first: Wrangler needs Node 22+. If it's older, have the user
+  install the current LTS from nodejs.org and reopen the terminal.
+- Deploy (your shell is non-interactive, so use these exact forms):
+  1. `npx wrangler login` — the user approves it in their browser. Wait for it.
+  2. `npx wrangler deploy` — the first deploy creates the KV namespace and writes
+     its `id` into `wrangler.toml`. Leave that id in place. The `[build]` hook
+     rebuilds `public/app.js` on every deploy.
+     - If it fails with "You need to register a workers.dev subdomain", the account
+       is brand new. Give the user the onboarding link from the error, have them
+       pick a name in the browser, then run `npx wrangler deploy` again.
+  3. Lock it: generate a key with
+     `node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"`,
+     then `printf '%s' "<key>" | npx wrangler secret put BOARD_KEY` (piped, because
+     there's no prompt to type into).
+  4. Verify: `curl -s -o /dev/null -w '%{http_code}' https://<url>/api/kv/board:roster:v1`
+     should print 401 (locked) and the same request with `-H "x-board-key: <key>"`
+     should print 200 or 404. Then give the user `https://<url>/#key=<key>` as the
+     link to share, and tell them to keep the key (it's not stored anywhere else).
+- Skip step 3 only if the user explicitly wants an open board.
 - Everything fits Cloudflare's free plan. Don't enable paid features.
 
 ## Data safety
@@ -52,6 +67,12 @@ Everything trip-specific lives near the top of `src/app.jsx`:
 - The Worker snapshots every section hourly into `bkp:` keys (about 2 days kept).
   Before any destructive change to a live board, take a manual backup with
   `npx wrangler kv key list` / `kv key get --remote`.
-- There are no logins: anyone with the URL can edit. Remind the user to keep
-  addresses, door codes and similar off the board. `BOARD_KEY` in `wrangler.toml`
-  adds a light shared-secret gate if they want one.
+- There are no logins: anyone with the full link (including `#key=…`) can edit.
+  Remind the user to share it only with the group and keep addresses, door codes
+  and similar off the board. To revoke access, set a new `BOARD_KEY` and send the
+  new link.
+- Never put the key in `wrangler.toml` `[vars]` or commit it; use the secret (and
+  `.dev.vars` locally, which is gitignored).
+- `public/_headers` sets a Content-Security-Policy. If you embed a new third-party
+  domain (a different playlist service, maps, etc.), add it there or it will be
+  blocked.

@@ -17,8 +17,8 @@ First, read README.md and CLAUDE.md so you understand the project. Then ask me t
 Then:
 - Update the trip name, dates, weather location and starting lists in src/app.jsx.
 - Run it on my computer (npm install, then npm run dev) and give me the link so I can look at it before anything goes online.
-- When I say it looks good, walk me through putting it on Cloudflare's free plan: I'll do the browser login when you run "npx wrangler login". Then create the KV namespace, put its id into wrangler.toml, and deploy.
-- Give me the final link to send to everyone, plus a short note on how to change things later.
+- When I say it looks good, put it on Cloudflare's free plan as a private board. I'll do the browser login when you run "npx wrangler login". Then deploy it, lock it with a private link key, and check that the live link works.
+- Give me the final link to send to everyone (with the key on the end), plus a short note on how to change things later.
 
 Ask before you run anything that deletes data or costs money.
 ```

@@ -15,12 +15,11 @@ directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
-# Shared board state lives here. Before your first deploy, create your own
-# namespace and paste the id it prints below (local `npm run dev` works without it):
-#   npx wrangler kv namespace create BOARD
+# Shared board state lives here. No id needed: on your first `wrangler deploy`,
+# Wrangler creates the KV namespace on your account and writes its id back into
+# this file. Keep that id afterwards so later deploys reuse the same data.
 [[kv_namespaces]]
 binding = "BOARD"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
 
 # Edge rate limiting (free). namespace_id is just a unique integer per limiter
 # within THIS Worker — not a resource you create. period is 10 or 60.
@@ -48,9 +47,11 @@ crons = ["0 * * * *"]
 [vars]
 # Namespaces KV keys, so one Worker + KV namespace can host multiple boards.
 BOARD_ID = "demo"
-# Optional light gate: uncomment + set, and the app must send the same value as
-# X-Board-Key. The Worker enforces it only when this is set.
-# BOARD_KEY = "some-shared-secret"
+# Private link (recommended): don't put the key here — [vars] are visible to anyone
+# who reads this file. Set it as a secret after the first deploy, then share
+# https://<your-board>/#key=<the-key>:
+#   npx wrangler secret put BOARD_KEY
+# For local testing, put BOARD_KEY=<key> in a .dev.vars file (already gitignored).
 
 # Optional: serve on your own domain. If the zone is on your Cloudflare account,
 # deploying auto-creates the DNS record + TLS cert. Otherwise you get a

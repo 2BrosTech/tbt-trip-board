@@ -1,5 +1,5 @@
 {
-  "name": "trip-board",
+  "name": "tbt-trip-board",
   "version": "1.0.0",
   "private": true,
   "description": "No-login shared board on Cloudflare Workers + KV — a reusable template",
