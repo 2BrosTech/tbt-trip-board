@@ -91,8 +91,8 @@ npm install
 # 1. log into YOUR Cloudflare account (opens a browser)
 npx wrangler login
 
-# 2. ship it. The first deploy creates the KV namespace for you and writes its id
-#    into wrangler.toml (keep it). The [build] hook bundles src/app.jsx first.
+# 2. ship it. The first deploy creates the KV namespace for you; later deploys
+#    reuse it. The [build] hook bundles src/app.jsx first.
 npx wrangler deploy
 
 # 3. make it private: generate a key, store it as a secret

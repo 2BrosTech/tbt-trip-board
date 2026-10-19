@@ -15,9 +15,10 @@ directory = "./public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
-# Shared board state lives here. No id needed: on your first `wrangler deploy`,
-# Wrangler creates the KV namespace on your account and writes its id back into
-# this file. Keep that id afterwards so later deploys reuse the same data.
+# Shared board state lives here. No id needed: your first `wrangler deploy` creates
+# the KV namespace on your account, and later deploys reuse it automatically.
+# (If you ever delete the Worker in the dashboard, add `id = "<namespace id>"` here
+# before redeploying, or you'll get a new, empty board.)
 [[kv_namespaces]]
 binding = "BOARD"
 

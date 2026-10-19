@@ -40,8 +40,11 @@ Everything trip-specific lives near the top of `src/app.jsx`:
   install the current LTS from nodejs.org and reopen the terminal.
 - Deploy (your shell is non-interactive, so use these exact forms):
   1. `npx wrangler login` — the user approves it in their browser. Wait for it.
-  2. `npx wrangler deploy` — the first deploy creates the KV namespace and writes
-     its `id` into `wrangler.toml`. Leave that id in place. The `[build]` hook
+  2. `npx wrangler deploy` — the first deploy creates the KV namespace (named
+     `<worker>-board`) and binds it; later deploys reuse that binding, so redeploying
+     after edits keeps the board's data. Don't add an `id` to `wrangler.toml`
+     unless the Worker was deleted (then use the existing namespace's id from
+     `npx wrangler kv namespace list` so the data comes back). The `[build]` hook
      rebuilds `public/app.js` on every deploy.
      - If it fails with "You need to register a workers.dev subdomain", the account
        is brand new. Give the user the onboarding link from the error, have them
@@ -62,6 +65,8 @@ Everything trip-specific lives near the top of `src/app.jsx`:
 - Seeds only load into an **empty** section, and only after a confirmed-empty read.
   Editing a seed after the board is live does not change the live board — the user
   edits it in the app, or you clear that KV key deliberately (ask first).
+- Never delete the Worker to "start over" without asking: the data lives in the
+  KV namespace, and a fresh deploy without its id creates a new, empty one.
 - Don't rename `KEYS` on a live board; the app would start fresh under the new key
   and the old data would look lost.
 - The Worker snapshots every section hourly into `bkp:` keys (about 2 days kept).
